@@ -12,8 +12,24 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.node.ObjectNode
 
-import de.undercouch.bson4jackson.BsonFactory;
+import de.undercouch.bson4jackson.BsonFactory
 import java.io.ByteArrayInputStream
+import java.io.BufferedInputStream
+
+import org.bson.BSONDecoder
+import org.bson.BSONObject
+import org.bson.BasicBSONObject
+import org.bson.BasicBSONDecoder
+import org.bson.BasicBSONEncoder
+
+import org.bson.BsonDocument
+
+import java.nio.ByteBuffer
+import org.bson.BsonBinaryReader
+import org.bson.codecs.BsonDocumentCodec
+import org.bson.codecs.DecoderContext
+
+//import org.bson.Bits
 
 import com.saasquatch.jsonschemainferrer.AdditionalPropertiesPolicies
 import com.saasquatch.jsonschemainferrer.ArrayLengthFeature
@@ -116,36 +132,96 @@ class JsonInferrer : CliktCommand(
             .build()
         )
         
-        val tree : JsonNode = (
+        val schema = (
             if (isBson) {
-                val bsonmapper = ObjectMapper(BsonFactory())
+                val samples = ArrayList<JsonNode>()
+
+                val decoder = BasicBSONDecoder()
+                val encoder = BasicBSONEncoder()
+                val codec = BsonDocumentCodec()
+
+                val inputStream = jsonfile.inputStream()
+                val bufferedInputStream = BufferedInputStream(inputStream)
+                while (bufferedInputStream.available() > 0) {
+                    val obj = decoder.readObject(bufferedInputStream)
+                    val objBytes = encoder.encode(obj);
+                    
+                    val reader = BsonBinaryReader(ByteBuffer.wrap(objBytes))
+                    val context = DecoderContext.builder().build()
+                    val doc = codec.decode(reader, context)
+
+                    samples.add(mapper.readTree(doc.toString()))
+                    //println(mapper.writeValueAsString(obj.toMap()))
+                }
+
+                /*val codec = BsonDocumentCodec()
+
+                val inputStream = jsonfile.inputStream()
+                val bufferedInputStream = BufferedInputStream(inputStream)
+                
+                while (bufferedInputStream.available() > 0) {
+                    // https://github.com/mongodb/mongo-java-driver/blob/master/bson/src/main/org/bson/BasicBSONDecoder.java
+                    val sizeBytes = ByteArray(4)
+                    Bits.readFully(bufferedInputStream, sizeBytes)
+                    val size = Bits.readInt(sizeBytes)
+
+                    val byte_buffer = ByteArray(size)
+                    System.arraycopy(sizeBytes, 0, byte_buffer, 0, 4)
+                    Bits.readFully(bufferedInputStream, byte_buffer, 4, size - 4)
+                }*/
+
+                /*val codec = BsonDocumentCodec()
+                // https://github.com/mongodb/mongo-java-driver/blob/master/bson/src/main/org/bson/BasicBSONDecoder.java
+                val bytes = jsonfile.readBytes()
+
+                val reader = BsonBinaryReader(ByteBuffer.wrap(bytes))
+                val context = DecoderContext.builder().build()
+                val doc = codec.decode(reader, context)
+                println(doc.toString())
+                val doc2 = codec.decode(reader, context)
+                println(doc2.toString())*/
+                
+
+                /*val decoder = BasicBSONDecoder()
+                
+                val samples = ArrayList<BSONObject>()
+
+                val inputStream = jsonfile.inputStream()
+                val bufferedInputStream = BufferedInputStream(inputStream)
+                while (bufferedInputStream.available() > 0) {
+                    val obj = decoder.readObject(bufferedInputStream)
+                    samples.add(obj);
+                    println(obj.toString())
+                    //println(mapper.readTree(obj.toString()))
+                    println(mapper.writeValueAsString(obj.toMap()))
+                }*/
+                /*val bsonmapper = ObjectMapper(BsonFactory())
                 val bytes : ByteArray = jsonfile.readBytes()
                 val pojotree = bsonmapper.readTree(bytes)
-                val str = mapper.writeValueAsString(pojotree)
-                mapper.readTree(str)
+                val str = mapper.writeValueAsString(pojotree)*/
+                
+
+                inferrer.inferForSamples(samples)
             }
             else {
-                mapper.readTree(
+                val tree = mapper.readTree(
                     jsonfile.readText()
                 )
+        
+                if (isSampleCollection && tree.isArray()) {
+                    inferrer.inferForSamples(
+                        StreamSupport.stream(
+                            tree.spliterator(), false
+                        )
+                        .collect(Collectors.toList())
+                    )
+                }
+                else {
+                    inferrer.inferForSample(tree);
+                }
             }
         );
 
-        val schema = (
-            if (isSampleCollection && tree.isArray()) {
-                inferrer.inferForSamples(
-                    StreamSupport.stream(
-                        tree.spliterator(), false
-                    )
-                    .collect(Collectors.toList())
-                )
-            }
-            else {
-                inferrer.inferForSample(tree);
-            }
-        )
-
-        
         println(
             mapper
             .writerWithDefaultPrettyPrinter()

@@ -19,6 +19,9 @@ dependencies {
     // jackson plugin to read bson stuff
     compile 'de.undercouch:bson4jackson:2.9.2'
     
+    // https://mvnrepository.com/artifact/org.mongodb/bson
+    compile group: 'org.mongodb', name: 'bson', version: '4.0.1'
+
     // https://mvnrepository.com/artifact/org.apache.commons/commons-lang3
     //compile group: 'org.apache.commons', name: 'commons-lang3', version: '3.9'
 
