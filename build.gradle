@@ -1,0 +1,49 @@
+plugins {
+    id 'base'
+    id 'application'
+    id 'org.jetbrains.kotlin.jvm' version '1.3.31'
+}
+
+repositories {
+    jcenter()
+    maven { url "https://jitpack.io" }
+}
+
+dependencies {
+    // kotlin stdlib to get kotlin to do anything
+    compile 'org.jetbrains.kotlin:kotlin-stdlib'
+    
+    compile "com.fasterxml.jackson.module:jackson-module-kotlin:2.9.+"
+    compile 'com.github.saasquatch:json-schema-inferrer:0.1.1'
+    
+    // jackson plugin to read bson stuff
+    compile 'de.undercouch:bson4jackson:2.9.2'
+    
+    // https://mvnrepository.com/artifact/org.apache.commons/commons-lang3
+    //compile group: 'org.apache.commons', name: 'commons-lang3', version: '3.9'
+
+    // https://mvnrepository.com/artifact/commons-validator/commons-validator
+    compile group: 'commons-validator', name: 'commons-validator', version: '1.6'
+
+    implementation "com.github.ajalt:clikt:2.6.0"
+}
+
+sourceSets {
+    main.kotlin.srcDirs += 'src/'
+}
+
+jar {
+    baseName = 'json-schema-inferrer-cli'
+    version = '0.0.1'
+    //mainClassName = 'com.github.cdxOo.GamepadTyper.Controller_testKt'
+    mainClassName = 'com.github.cdxOo.JsonSchemaInferrerCli.MainKt'
+    manifest {
+        attributes 'Implementation-Title': 'JSON-Schema-Inferrer-CLI',
+                   'Implementation-Version': version,
+                   'Main-Class': mainClassName
+    }
+    // copy all files to jar so that kotlin-stdlib is included
+    // @see https://stackoverflow.com/questions/26469365/building-a-self-executable-jar-with-gradle-and-kotlin
+    from { configurations.compile.collect { it.isDirectory() ? it : zipTree(it) }}
+}
+
