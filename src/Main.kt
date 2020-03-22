@@ -2,11 +2,9 @@ package com.github.cdxOo.JsonSchemaInferrerCli
 
 import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.parameters.arguments.argument
-import com.github.ajalt.clikt.parameters.options.multiple
-import com.github.ajalt.clikt.parameters.options.option
-import com.github.ajalt.clikt.parameters.options.flag
-import com.github.ajalt.clikt.parameters.options.option
-import com.github.ajalt.clikt.parameters.types.file
+import com.github.ajalt.clikt.parameters.arguments.convert
+import com.github.ajalt.clikt.parameters.options.*
+import com.github.ajalt.clikt.parameters.types.*
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.JsonNode
@@ -29,10 +27,15 @@ import org.bson.BsonBinaryReader
 import org.bson.codecs.BsonDocumentCodec
 import org.bson.codecs.DecoderContext
 
+
+import org.bson.json.JsonWriterSettings
+import org.bson.json.JsonMode
+
 //import org.bson.Bits
 
 import com.saasquatch.jsonschemainferrer.AdditionalPropertiesPolicies
 import com.saasquatch.jsonschemainferrer.ArrayLengthFeature
+import com.saasquatch.jsonschemainferrer.EnumExtractor
 import com.saasquatch.jsonschemainferrer.EnumExtractors
 import com.saasquatch.jsonschemainferrer.ExamplesPolicies
 import com.saasquatch.jsonschemainferrer.FormatInferrerInput
@@ -48,6 +51,7 @@ import com.saasquatch.jsonschemainferrer.StringLengthFeature
 import com.saasquatch.jsonschemainferrer.TitleDescriptionGenerators
 
 // FIXME: can we get rid of those an use kotlin features instead?
+import java.util.Collections
 import java.util.stream.Collectors
 import java.util.stream.StreamSupport
 
@@ -55,68 +59,190 @@ class JsonInferrer : CliktCommand(
     help = "Infer JSON-Schema from JSON-Datasets"
 ) {
     val jsonfile by argument().file(mustExist = true)
+    
     val isSampleCollection by option(
         "-c",
         "--is-sample-collection",
         help="when json file contains array, treat this array as a collection of samples"
     ).flag()
+
+
     val isBson by option(
         "-b",
         "--bson",
         help="treat input file as bson"
     ).flag()
+    
+    val specVersionString by (
+        option(
+            "--spec-version",
+            help="schema version e.g. draft-07"
+        )
+        .choice("draft-07", "draft-06", "draft-04")
+        .default("draft-07")
+        // FIXME: cannot inline shit
+        //.convert { it -> SpecVersion.DRAFT_07 }
+    )
+
+    val examplesAmount by (
+        option(
+            "--examples"
+        )
+        .int()
+        .default(3)
+    )
+
+    val examplesPolicy by (
+        option(
+            "--examples-policy"
+        )
+        .choice(
+            "first"
+        )
+    )
+    
+    val requiredPropsPolicy by (
+        option(
+            "--required-props-policy"
+        )
+        .choice(
+            "non-null-common",
+            "common"
+        )
+    )
+    
+    val additionalPropsPolicy by (
+        option(
+            "--additional-props-policy"
+        )
+        .choice(
+            "allowed",
+            "not-allowed",
+            "existing-types"
+        )
+    )
+
+    val integerMultipleOfPolicy by (
+        option(
+            "--integer-multiple-of-policy"
+        )
+        .choice(
+            "gcd"
+        )
+    )
+
+    val defaultValuePolicy by (
+        option(
+            "--default-value-policy"
+        )
+        .choice(
+            "first-sample",
+            "last-sample"
+        )
+    )
+
+    val formatInferrers by (
+        option(
+            "-i",
+            "--format-inferrer"
+        )
+        .choice(
+            "email",
+            "date-time",
+            "ip"
+        )
+        .multiple(required = false)
+        .unique()
+    )
+
+
 
     override fun run () {
-        /*val mapper = (
-            if (isBson) {
-                ObjectMapper(BsonFactory())
-            }
-            else {
-                ObjectMapper()
-            }
-        )*/
+   
+        var selectedSpecVersion = when (specVersionString) {
+            "draft-07" -> SpecVersion.DRAFT_07 
+            "draft-06" -> SpecVersion.DRAFT_06
+            "draft-04" -> SpecVersion.DRAFT_04
+            else -> SpecVersion.DRAFT_07
+        }
+
         val mapper = ObjectMapper();
 
-        val inferrer = (
+        val builder = (
             JsonSchemaInferrer.newBuilder()
-            .setSpecVersion(SpecVersion.DRAFT_06)
+            .setSpecVersion(selectedSpecVersion)
             .setIntegerTypeCriterion(
                 IntegerTypeCriteria.mathematicalInteger()
             )
-            .setExamplesPolicy(
-                ExamplesPolicies.useFirstSamples(3)
+        )
+
+        if (examplesPolicy != null) {
+            builder.setExamplesPolicy(
+                when (examplesPolicy) {
+                    "first" -> ExamplesPolicies.useFirstSamples(examplesAmount)
+                    else -> throw IllegalArgumentException("Unknown Example Policy")
+                }
             )
-            .setAdditionalPropertiesPolicy(
-                AdditionalPropertiesPolicies.existingTypes()
+        }
+
+        if (requiredPropsPolicy != null) {
+            builder.setRequiredPolicy(
+                when (requiredPropsPolicy) {
+                    "non-null-common" -> RequiredPolicies.nonNullCommonFields()
+                    "common" -> RequiredPolicies.commonFields()
+                    else -> throw IllegalArgumentException("Unknown Required Properties Policy")
+                }
             )
-            .setRequiredPolicy(
-                RequiredPolicies.nonNullCommonFields()
+        }
+
+        if (additionalPropsPolicy != null) {
+            builder.setAdditionalPropertiesPolicy(
+                when (requiredPropsPolicy) {
+                    "allowed" -> AdditionalPropertiesPolicies.allowed()
+                    "not-allowed" -> AdditionalPropertiesPolicies.notAllowed()
+                    "existing-types" -> AdditionalPropertiesPolicies.existingTypes()
+                    else -> throw IllegalArgumentException("Unknown Required Properties Policy")
+                }
             )
-            .setTitleDescriptionGenerator(
+        }
+
+        if (formatInferrers != null) {
+            formatInferrers.forEach {
+                builder.addFormatInferrers(
+                    when (it) {
+                        "email" -> FormatInferrers.email()
+                        "date-time" -> FormatInferrers.dateTime()
+                        "ip" -> FormatInferrers.ip()
+                        else -> throw IllegalArgumentException("Unknown Format Inferrer")
+                    }
+                )
+            }
+        }
+
+        val inferrer = (
+            builder
+            /*.setTitleDescriptionGenerator(
                 TitleDescriptionGenerators.useFieldNamesAsTitles()
-            )
-            .addFormatInferrers(
-                FormatInferrers.email(),
-                FormatInferrers.dateTime(),
-                FormatInferrers.ip()
-                //Example2::absoluteUriFormatInferrer
-            )
+            )*/
             .setMultipleOfPolicy(
                 MultipleOfPolicies.gcd()
             )
-            /*.addEnumExtractors(
-                EnumExtractors.validEnum(Month.class),
-                EnumExtractors.validEnum(DayOfWeek.class),
-                input -> {
-                    final Set<? extends JsonNode> primitives = input.getSamples().stream()
+            .addEnumExtractors(
+                //EnumExtractors.validEnum(Month.class),
+                //EnumExtractors.validEnum(DayOfWeek.class),
+                EnumExtractor { input ->
+                    val primitives = input.getSamples().stream()
                         .filter(JsonNode::isValueNode)
-                        .collect(Collectors.toSet());
-                    if (primitives.size() <= 100 && primitives.size() > 0) {
-                        return Collections.singleton(primitives);
+                        .collect(Collectors.toSet())
+                    if (primitives.size <= 40 && primitives.size > 0) {
+                        // FIXME: this wierd cast
+                        Collections.singleton(primitives) as Set<Set<out JsonNode>>
                     }
-                    return Collections.emptySet();
+                    else {
+                        Collections.emptySet()
+                    }
                 }
-            )*/
+            )
             /*.setArrayLengthFeatures(
                 EnumSet.allOf(ArrayLengthFeature.class)
             )
@@ -140,6 +266,12 @@ class JsonInferrer : CliktCommand(
                 val encoder = BasicBSONEncoder()
                 val codec = BsonDocumentCodec()
 
+                val jsonSettings = (
+                    JsonWriterSettings.builder()
+                    .outputMode(JsonMode.EXTENDED)
+                    .build()
+                )
+
                 val inputStream = jsonfile.inputStream()
                 val bufferedInputStream = BufferedInputStream(inputStream)
                 while (bufferedInputStream.available() > 0) {
@@ -150,7 +282,9 @@ class JsonInferrer : CliktCommand(
                     val context = DecoderContext.builder().build()
                     val doc = codec.decode(reader, context)
 
-                    samples.add(mapper.readTree(doc.toString()))
+                    samples.add(mapper.readTree(
+                        doc.toJson(jsonSettings)
+                    ))
                     //println(mapper.writeValueAsString(obj.toMap()))
                 }
 
