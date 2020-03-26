@@ -1,0 +1,45 @@
+plugins {
+    id 'application'
+    id 'org.jetbrains.kotlin.jvm'
+}
+
+dependencies {
+    // kotlin stdlib to get kotlin to do anything
+    compile 'org.jetbrains.kotlin:kotlin-stdlib'
+    
+    // cli application toolkit
+    implementation "com.github.ajalt:clikt:2.6.0"
+
+    // to read and print json
+    compile "com.fasterxml.jackson.module:jackson-module-kotlin:2.9.+"
+
+    // the inferrer library
+    compile 'com.github.saasquatch:json-schema-inferrer:0.1.1'
+    
+    // https://mvnrepository.com/artifact/org.apache.commons/commons-lang3
+    //compile group: 'org.apache.commons', name: 'commons-lang3', version: '3.9'
+
+    // inferrer library needs that
+    // https://mvnrepository.com/artifact/commons-validator/commons-validator
+    compile group: 'commons-validator', name: 'commons-validator', version: '1.6'
+
+}
+
+sourceSets {
+    main.kotlin.srcDirs += 'src/'
+}
+
+jar {
+    baseName = 'json-schema-inferrer'
+    version = '1.0.0'
+    mainClassName = 'com.github.cdxOo.XsonUtils.schemainferrer.MainKt'
+    manifest {
+        attributes 'Implementation-Title': 'JSON-Schema-Inferrer-CLI',
+                   'Implementation-Version': version,
+                   'Main-Class': mainClassName
+    }
+    // copy all files to jar so that kotlin-stdlib is included
+    // @see https://stackoverflow.com/questions/26469365/building-a-self-executable-jar-with-gradle-and-kotlin
+    from { configurations.compile.collect { it.isDirectory() ? it : zipTree(it) }}
+}
+

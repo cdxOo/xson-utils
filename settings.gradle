@@ -1,0 +1,2 @@
+include 'bsontojson'
+include 'schema-inferrer'

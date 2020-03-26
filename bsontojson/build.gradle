@@ -1,0 +1,36 @@
+plugins {
+    id 'application'
+    id 'org.jetbrains.kotlin.jvm'
+}
+
+dependencies {
+    // kotlin stdlib to get kotlin to do anything
+    compile 'org.jetbrains.kotlin:kotlin-stdlib'
+    
+    // cli application toolkit
+    implementation "com.github.ajalt:clikt:2.6.0"
+
+    compile group: 'org.mongodb', name: 'bson', version: '4.0.1'
+    
+}
+
+sourceSets {
+    main.kotlin.srcDirs += 'src/'
+}
+
+jar {
+    baseName = 'bsontojson'
+    version = '1.0.0'
+    mainClassName = 'com.github.cdxOo.XsonUtils.bsontojson.MainKt'
+    manifest {
+        attributes 'Implementation-Title': 'Bson-to-Json',
+                   'Implementation-Version': version,
+                   'Main-Class': mainClassName
+    }
+    // copy all files to jar so that kotlin-stdlib is included
+    // @see https://stackoverflow.com/questions/26469365/building-a-self-executable-jar-with-gradle-and-kotlin
+    from { configurations.compile.collect {
+        it.isDirectory() ? it : zipTree(it)
+    }}
+}
+
