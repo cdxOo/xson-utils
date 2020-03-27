@@ -1,14 +1,30 @@
 plugins {
-    id 'application'
     id 'org.jetbrains.kotlin.jvm'
+    id 'com.github.johnrengelman.shadow'
+}
+
+jar {
+    manifest {
+        attributes 'Main-Class': 'com.github.cdxOo.XsonUtils.schemainferrer.MainKt'
+        attributes 'Implementation-Version': project.property('VERSION_NAME')
+    }
+}
+
+sourceSets {
+    main.kotlin.srcDirs += 'src/'
+}
+
+shadowJar {
+    mergeServiceFiles()
+}
+
+artifacts {
+    archives shadowJar
 }
 
 dependencies {
-    // kotlin stdlib to get kotlin to do anything
-    compile 'org.jetbrains.kotlin:kotlin-stdlib'
-    
-    // cli application toolkit
-    implementation "com.github.ajalt:clikt:2.6.0"
+    implementation deps.kotlin.stdlib
+    implementation deps.clikt
 
     // to read and print json
     compile "com.fasterxml.jackson.module:jackson-module-kotlin:2.9.+"
@@ -16,30 +32,31 @@ dependencies {
     // the inferrer library
     compile 'com.github.saasquatch:json-schema-inferrer:0.1.1'
     
-    // https://mvnrepository.com/artifact/org.apache.commons/commons-lang3
-    //compile group: 'org.apache.commons', name: 'commons-lang3', version: '3.9'
-
     // inferrer library needs that
     // https://mvnrepository.com/artifact/commons-validator/commons-validator
     compile group: 'commons-validator', name: 'commons-validator', version: '1.6'
 
+    // https://mvnrepository.com/artifact/org.apache.commons/commons-lang3
+    //compile group: 'org.apache.commons', name: 'commons-lang3', version: '3.9'
+
 }
 
-sourceSets {
-    main.kotlin.srcDirs += 'src/'
-}
+// Implements https://github.com/brianm/really-executable-jars-maven-plugin maven plugin behaviour.
+// To check details how it works, see http://skife.org/java/unix/2011/06/20/really_executable_jars.html.
+tasks.register("shadowJarExecutable", DefaultTask.class) {
+    description = "Creates self-executable file, that runs generated shadow jar"
+    group = "Distribution"
 
-jar {
-    baseName = 'json-schema-inferrer'
-    version = '1.0.0'
-    mainClassName = 'com.github.cdxOo.XsonUtils.schemainferrer.MainKt'
-    manifest {
-        attributes 'Implementation-Title': 'JSON-Schema-Inferrer-CLI',
-                   'Implementation-Version': version,
-                   'Main-Class': mainClassName
+    inputs.files tasks.named("shadowJar")
+    outputs.file "$buildDir/run/json-schema-inferrer"
+
+    doLast {
+        File execFile = outputs.files.singleFile
+        execFile.withOutputStream {
+            it.write "#!/bin/sh\n\nexec java -Xmx512m -jar \"\$0\" \"\$@\"\n\n".bytes
+            it.write inputs.files.singleFile.bytes
+        }
+        execFile.setExecutable(true, false)
     }
-    // copy all files to jar so that kotlin-stdlib is included
-    // @see https://stackoverflow.com/questions/26469365/building-a-self-executable-jar-with-gradle-and-kotlin
-    from { configurations.compile.collect { it.isDirectory() ? it : zipTree(it) }}
 }
 

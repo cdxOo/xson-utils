@@ -1,17 +1,6 @@
 plugins {
-    id 'application'
     id 'org.jetbrains.kotlin.jvm'
-}
-
-dependencies {
-    // kotlin stdlib to get kotlin to do anything
-    compile 'org.jetbrains.kotlin:kotlin-stdlib'
-    
-    // cli application toolkit
-    implementation "com.github.ajalt:clikt:2.6.0"
-
-    compile group: 'org.mongodb', name: 'bson', version: '4.0.1'
-    
+    id 'com.github.johnrengelman.shadow'
 }
 
 sourceSets {
@@ -19,18 +8,43 @@ sourceSets {
 }
 
 jar {
-    baseName = 'bsontojson'
-    version = '1.0.0'
-    mainClassName = 'com.github.cdxOo.XsonUtils.bsontojson.MainKt'
     manifest {
-        attributes 'Implementation-Title': 'Bson-to-Json',
-                   'Implementation-Version': version,
-                   'Main-Class': mainClassName
+        attributes 'Main-Class': 'com.github.cdxOo.XsonUtils.bsontojson.MainKt'
+        attributes 'Implementation-Version': project.property('VERSION_NAME')
     }
-    // copy all files to jar so that kotlin-stdlib is included
-    // @see https://stackoverflow.com/questions/26469365/building-a-self-executable-jar-with-gradle-and-kotlin
-    from { configurations.compile.collect {
-        it.isDirectory() ? it : zipTree(it)
-    }}
+}
+
+shadowJar {
+    mergeServiceFiles()
+}
+
+artifacts {
+    archives shadowJar
+}
+
+dependencies {
+    implementation deps.kotlin.stdlib
+    implementation deps.clikt
+    
+    compile group: 'org.mongodb', name: 'bson', version: '4.0.1'
+}
+
+// Implements https://github.com/brianm/really-executable-jars-maven-plugin maven plugin behaviour.
+// To check details how it works, see http://skife.org/java/unix/2011/06/20/really_executable_jars.html.
+tasks.register("shadowJarExecutable", DefaultTask.class) {
+    description = "Creates self-executable file, that runs generated shadow jar"
+    group = "Distribution"
+
+    inputs.files tasks.named("shadowJar")
+    outputs.file "$buildDir/run/bsontojson"
+
+    doLast {
+        File execFile = outputs.files.singleFile
+        execFile.withOutputStream {
+            it.write "#!/bin/sh\n\nexec java -Xmx512m -jar \"\$0\" \"\$@\"\n\n".bytes
+            it.write inputs.files.singleFile.bytes
+        }
+        execFile.setExecutable(true, false)
+    }
 }
 
