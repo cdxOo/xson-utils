@@ -39,3 +39,51 @@ tasks.withType(Wrapper.class).configureEach {
   gradleVersion = versions.gradle
   distributionType = Wrapper.DistributionType.BIN
 }
+
+tasks.register('makeDist', DefaultTask.class) {
+    group = "Distribution"
+    description = "creates distribution files"
+    
+    subprojects.each { subproject ->
+        // FIXME: this semantic is really wierd ... dependsOn()
+        // references makeDistTask not subproject
+        // the readability isnt good here
+        dependsOn "${subproject.name}:shadowJarExecutable"
+    }
+
+    // FIXME: this doesnt work somehow
+    // see https://docs.gradle.org/current/userguide/more_about_tasks.html#sec:adding_dependencies_to_tasks
+    // in example 16
+    /*dependsOn {
+        subprojects { it -> 
+            // FIXME: probably need find the actual task here
+            "${subproject.name}:shadowJarExecutable"
+        }
+    }*/
+   
+    // FIXME; this is how ktlint tries to do that
+    // but it diesnt seem to work either
+    /* subprojects { subproject ->
+        //println "foo"
+        //println subproject.tasks
+        subproject.tasks.startsWith("shadowJarExecutable") { -> task
+            //println ":${subproject.name}:${task.name}"
+            //makeDistTask.dependsOn ":${subproject.name}:${task.name}"
+        }
+    }*/
+
+    doLast {
+        mkdir "$buildDir/dist"
+        subprojects.each { subproject ->
+            copy {
+                from "${subproject.buildDir}/run/*"
+                into "$buildDir/dist/"
+            }
+        }
+        fileTree("$buildDir/dist").visit { FileVisitDetails details ->
+            /*exec {
+                commandLine "sha512sum", "${details.file.path}"
+            }*/
+        }
+    }
+}
