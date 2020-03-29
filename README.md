@@ -4,7 +4,8 @@ JVM based command line utilities for BSON and JSON written in Kotlin.
 
 * bsontojson
     
-    Reads a BSON file and prints its contents as json. Available mongodb-ext-json modes are "extended", "relaxed" and "shell". Default is "relaxed".
+    Reads a BSON file and prints its contents as mongodb extended JSON.
+    Available mongodb-ext-json modes are "extended", "relaxed" and "shell". Default is "relaxed".
     See the [mongodb-ext-json documentation](https://mongodb.github.io/mongo-java-driver/4.0/bson/extended-json/) for more information regarding the modes.
 
 * json-schema-inferrer
