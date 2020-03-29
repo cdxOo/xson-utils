@@ -16,7 +16,7 @@ JVM based command line utilities for BSON and JSON written in Kotlin.
 
 ## Installation
     
-    In addition to the  instuctions below, you can also download the utilities from the [release assets](https://github.com/cdxOo/xson-utils/releases).
+In addition to the  instuctions below, you can also download the utilities from the [release assets](https://github.com/cdxOo/xson-utils/releases).
 
 ### bsontojson
     
