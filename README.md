@@ -25,22 +25,21 @@ In addition to the  instuctions below, you can also download the utilities from 
 
     # verify the executables sha512sum (optional but recommended)
     curl -sSLO https://github.com/cdxOo/xson-utils/releases/download/0.1.0-alpha/bsontojson.sha512 \
-        && sha512sum bsontojson.sha512
+        && sha512sum -c bsontojson.sha512 bsontojson
 
 ### json-schema-inferrer
 
-    # json-schema-inferrer
     curl -sSLO https://github.com/cdxOo/xson-utils/releases/download/0.1.0-alpha/json-schema-inferrer \
         && chmod a+x json-schema-inferrer
 
     # verify the executables sha512sum (optional but recommended)
     curl -sSLO https://github.com/cdxOo/xson-utils/releases/download/0.1.0-alpha/json-inferrer-schema.sha512 \
-        && sha512sum json-inferrer-schema.sha512
+        && sha512sum -c json-inferrer-schema.sha512 json-schema-inferrer
 
 ## Usage
     
     # bsontojson
-    ./bsontojson -m extended my-bson-file.bson
+    bsontojson -m extended my-bson-file.bson
 
     # json-schema-inferrer
     json-schema-inferrer --help
